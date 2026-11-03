@@ -293,6 +293,7 @@ def _build_routes() -> dict[str, RouterEntry]:
             supported_ops=('get', 'set', 'add', 'delete', 'describe'),
             field_schema={
                 'loop': {'type': 'bool', 'desc': '循环执行'},
+                'default_predefined_team_idx': {'type': 'int', 'desc': '默认预备编队下标，-1 沿用游戏内配队'},
                 'restore_charge': {'type': 'enum', 'enum_cls': RestoreChargeEnum, 'desc': '恢复电量方式'},
                 'double_reward': {'type': 'bool', 'desc': '双倍活动'},
                 'daily_reset_plan_times': {'type': 'bool', 'desc': '每日重置'},
@@ -304,7 +305,7 @@ def _build_routes() -> dict[str, RouterEntry]:
                 {'name': 'plan_times', 'type': 'int', 'required': False, 'default': 1},
                 {'name': 'run_times', 'type': 'int', 'required': False, 'default': 0, 'note': '运行次数(可手工修正,如手工跑了一次后调整)'},
                 {'name': 'auto_battle_config', 'type': 'str', 'required': False, 'default': '全配队通用'},
-                {'name': 'predefined_team_idx', 'type': 'int', 'required': False, 'default': -1},
+                {'name': 'predefined_team_idx', 'type': 'int', 'required': False, 'default': -1, 'note': '-1 使用体力计划的默认编队'},
                 {'name': 'card_num', 'type': 'enum', 'required': False, 'enum_cls': CardNumEnum, 'applicability': '仅实战模拟室'},
                 {'name': 'level', 'type': 'str', 'required': False, 'default': '默认等级'},
             ],

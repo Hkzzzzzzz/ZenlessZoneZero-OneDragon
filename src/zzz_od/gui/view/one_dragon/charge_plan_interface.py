@@ -170,7 +170,7 @@ class ChargePlanCard(DraggableListItem):
         """
         初始化预备编队的下拉框
         """
-        config_list = ([ConfigItem('游戏内配队', -1)] +
+        config_list = ([ConfigItem('使用默认编队', -1)] +
                        [ConfigItem(team.name, team.idx) for team in self.ctx.team_config.team_list])
         self.predefined_team_opt.set_items(config_list, self.plan.predefined_team_idx)
         self.predefined_team_opt.setVisible(
@@ -182,7 +182,7 @@ class ChargePlanCard(DraggableListItem):
         self.auto_battle_combo_box.set_items(config_list, self.plan.auto_battle_config)
         self.auto_battle_combo_box.setVisible(
             self.plan.category_name != '合成电池'
-            and self.plan.predefined_team_idx == -1
+            and self.config.get_predefined_team_idx(self.plan) == -1
         )
 
     def init_run_times_input(self) -> None:
@@ -300,6 +300,7 @@ class DoubleRewardEventConfigCard(MultiLineSettingCard):
         self.ctx: ZContext = ctx
         self.plan: ChargePlanItem = plan if plan is not None else ChargePlanItem()
         self.category_name: str = category_name
+        self.default_predefined_team_idx: int = -1
 
         self.category_combo_box = ComboBox()
         self.category_combo_box.setDisabled(True)
@@ -333,11 +334,14 @@ class DoubleRewardEventConfigCard(MultiLineSettingCard):
 
         self.init_with_plan(self.plan)
 
-    def init_with_plan(self, plan: ChargePlanItem) -> None:
+    def init_with_plan(
+        self, plan: ChargePlanItem, default_predefined_team_idx: int = -1,
+    ) -> None:
         """
         以双倍活动配置初始化。
         """
         self.plan = plan
+        self.default_predefined_team_idx = default_predefined_team_idx
         self.plan.tab_name = '训练'
         self.plan.category_name = self.category_name
 
@@ -368,14 +372,16 @@ class DoubleRewardEventConfigCard(MultiLineSettingCard):
         """
         初始化预备编队的下拉框。
         """
-        config_list = ([ConfigItem('游戏内配队', -1)] +
+        config_list = ([ConfigItem('使用默认编队', -1)] +
                        [ConfigItem(team.name, team.idx) for team in self.ctx.team_config.team_list])
         self.predefined_team_opt.set_items(config_list, self.plan.predefined_team_idx)
 
     def init_auto_battle_box(self) -> None:
         config_list = get_auto_battle_op_config_list(sub_dir='auto_battle')
         self.auto_battle_combo_box.set_items(config_list, self.plan.auto_battle_config)
-        self.auto_battle_combo_box.setVisible(self.plan.predefined_team_idx == -1)
+        self.auto_battle_combo_box.setVisible(
+            self.plan.predefined_team_idx == -1 and self.default_predefined_team_idx == -1
+        )
 
     def _on_mission_type_changed(self, idx: int) -> None:
         self.plan.mission_type_name = self.mission_type_combo_box.itemData(idx)
@@ -430,6 +436,13 @@ class ChargePlanInterface(VerticalScrollInterface, GroupIdMixin):
         self.daily_reset_plan_times_opt = SwitchSettingCard(icon=FluentIcon.HISTORY, title='每日重置', content='开启后，每天首次运行体力计划前，会将所有体力计划已运行次数清零')
         self.restore_charge_opt = ComboBoxSettingCard(icon=FluentIcon.ADD_TO, title='恢复电量', content='电量不足时尝试按所选方式有效补足缺口', options_enum=RestoreChargeEnum)
         self.content_widget.add_widget(HorizontalSettingCardGroup([self.daily_reset_plan_times_opt, self.restore_charge_opt], spacing=6))
+
+        self.default_predefined_team_opt: ComboBoxSettingCard = ComboBoxSettingCard(
+            icon=FluentIcon.PEOPLE, title='默认预备编队',
+            content='未单独指定编队的计划共用此队伍及其战斗配置',
+        )
+        self.default_predefined_team_opt.value_changed.connect(self.on_default_predefined_team_changed)
+        self.content_widget.add_widget(self.default_predefined_team_opt)
 
         self.double_reward_group = ExpandSettingCardGroup(
             icon=FluentIcon.FLAG,
@@ -505,7 +518,16 @@ class ChargePlanInterface(VerticalScrollInterface, GroupIdMixin):
         self.update_plan_list_display()
 
         self.combat_simulation_double_reward_config_card.init_with_plan(
-            self.config.combat_simulation_double_reward_config
+            self.config.combat_simulation_double_reward_config,
+            self.config.default_predefined_team_idx,
+        )
+
+        self.default_predefined_team_opt.set_options_by_list(
+            [ConfigItem('游戏内配队', -1)]
+            + [ConfigItem(team.name, team.idx) for team in self.ctx.team_config.team_list]
+        )
+        self.default_predefined_team_opt.init_with_adapter(
+            get_prop_adapter(self.config, 'default_predefined_team_idx')
         )
 
         self.loop_opt.init_with_adapter(get_prop_adapter(self.config, 'loop'))
@@ -515,6 +537,13 @@ class ChargePlanInterface(VerticalScrollInterface, GroupIdMixin):
         self.restore_charge_opt.init_with_adapter(get_prop_adapter(self.config, 'restore_charge'))
 
         self.combat_simulation_double_reward_config_card.setEnabled(self.config.double_reward)
+
+    def on_default_predefined_team_changed(self, index: int, value: int) -> None:
+        """默认编队变化后，刷新计划的战斗配置显示。"""
+        for card in self.card_list:
+            card.init_auto_battle_box()
+        card = self.combat_simulation_double_reward_config_card
+        card.init_with_plan(card.plan, value)
 
     def on_double_reward_changed(self, value: bool) -> None:
         self.combat_simulation_double_reward_config_card.setEnabled(value)

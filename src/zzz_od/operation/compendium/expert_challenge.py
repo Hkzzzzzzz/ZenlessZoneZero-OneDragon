@@ -31,11 +31,14 @@ class ExpertChallenge(ZOperation):
     STATUS_CHARGE_NOT_ENOUGH: ClassVar[str] = '电量不足'
     STATUS_FIGHT_TIMEOUT: ClassVar[str] = '战斗超时'
 
-    def __init__(self, ctx: ZContext, plan: ChargePlanItem):
+    def __init__(
+        self, ctx: ZContext, plan: ChargePlanItem,
+        *, predefined_team_idx: int | None = None,
+    ) -> None:
         """
         使用快捷手册传送后
         用这个进行挑战
-        :param ctx:
+        predefined_team_idx 由体力计划传入；未传时使用计划原有编队。
         """
         ZOperation.__init__(
             self, ctx,
@@ -48,6 +51,9 @@ class ExpertChallenge(ZOperation):
         )
 
         self.plan: ChargePlanItem = plan
+        self.predefined_team_idx: int = (
+            plan.predefined_team_idx if predefined_team_idx is None else predefined_team_idx
+        )
 
     @operation_node(name='等待入口加载', is_start_node=True, node_max_retry_times=60)
     def wait_entry_load(self) -> OperationRoundResult:
@@ -103,10 +109,10 @@ class ExpertChallenge(ZOperation):
     @node_from(from_name='下一步', status='出战')
     @operation_node(name='选择预备编队')
     def choose_predefined_team(self) -> OperationRoundResult:
-        if self.plan.predefined_team_idx == -1:
+        if self.predefined_team_idx == -1:
             return self.round_success('无需选择预备编队')
         else:
-            op = ChoosePredefinedTeam(self.ctx, [self.plan.predefined_team_idx])
+            op = ChoosePredefinedTeam(self.ctx, [self.predefined_team_idx])
             return self.round_by_op_result(op.execute())
 
     @node_from(from_name='选择预备编队')
@@ -119,11 +125,11 @@ class ExpertChallenge(ZOperation):
     @node_from(from_name='判断下一次', status='战斗结果-再来一次')
     @operation_node(name='加载自动战斗指令')
     def init_auto_battle(self) -> OperationRoundResult:
-        if self.plan.predefined_team_idx == -1:
+        if self.predefined_team_idx == -1:
             auto_battle = self.plan.auto_battle_config
         else:
             team_list = self.ctx.team_config.team_list
-            auto_battle = team_list[self.plan.predefined_team_idx].auto_battle
+            auto_battle = team_list[self.predefined_team_idx].auto_battle
 
         self.ctx.auto_battle_context.init_auto_op(
             sub_dir='auto_battle',

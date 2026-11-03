@@ -39,7 +39,7 @@ class ChargePlanItem:
     run_times: int = 0
     plan_times: int = 1
     card_num: str = CardNumEnum.DEFAULT.value.value  # 实战模拟室的卡片数量
-    predefined_team_idx: int = -1  # 预备配队下标 -1为使用当前配队
+    predefined_team_idx: int = -1  # 预备配队下标；体力计划中 -1 为使用默认编队
     notorious_hunt_buff_num: int = 1  # 恶名狩猎 选择的buff
     plan_id: str | None = None  # 计划的唯一标识符
     skipped: bool = field(default=False, repr=False, metadata={'persist': False})  # 单次运行中是否跳过
@@ -314,6 +314,23 @@ class ChargePlanConfig(ApplicationConfig):
             return x.plan_id == y.plan_id
 
         return x == y
+
+    @property
+    def default_predefined_team_idx(self) -> int:
+        return self.get('default_predefined_team_idx', -1)
+
+    @default_predefined_team_idx.setter
+    def default_predefined_team_idx(self, new_value: int) -> None:
+        if type(new_value) is not int or not -1 <= new_value < 20:
+            raise ValueError('默认预备编队下标必须为 -1 到 19 的整数')
+        self.update('default_predefined_team_idx', new_value)
+
+    def get_predefined_team_idx(self, plan: ChargePlanItem) -> int:
+        """优先使用计划的专用编队，否则使用默认编队，不改写计划。"""
+        return (
+            self.default_predefined_team_idx
+            if plan.predefined_team_idx == -1 else plan.predefined_team_idx
+        )
 
     @property
     def loop(self) -> bool:

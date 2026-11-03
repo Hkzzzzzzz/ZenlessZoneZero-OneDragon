@@ -44,7 +44,7 @@ class ChargePlanDialog(MessageBoxBase):
             run_times=0,
             plan_times=1,
             card_num=str(CardNumEnum.DEFAULT.value.value),
-            predefined_team_idx=0,
+            predefined_team_idx=-1,
             notorious_hunt_buff_num=1,
         )
         # 使用 DraggableList 包裹，与主界面保持一致
